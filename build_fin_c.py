@@ -736,18 +736,25 @@ class ScamTextClassifier:
         return "low"
 
     def predict(self, text: str) -> dict:
-        result     = self._pipe(text, top_k=None)
-        scores     = {self._label_map[r["label"]]: round(r["score"], 4) for r in result}
-        scam_prob  = scores.get("scam", 0.0)
-        label      = "scam" if scam_prob >= self.threshold else "safe"
+        result = self._pipe(text, top_k=None)
+        scores = {self._label_map[r["label"]]: r["score"] for r in result}
+        scam_prob = scores.get("scam", 0.0)
+
+        lower = text.lower()
+
+        flags = []
+        if scam_prob > 0.7:
+            flags.append("high_risk")
+        if any(w in lower for w in ["urgent", "immediately", "now"]):
+            flags.append("urgency")
+        if any(w in lower for w in ["pay", "transfer", "bitcoin", "card"]):
+            flags.append("payment_request")
+
         return {
-            "scam_probability": scam_prob,
-            "safe_probability": scores.get("safe", 1.0 - scam_prob),
-            "label":            label,
-            "confidence":       self._confidence(scam_prob),
-            "threshold_used":   self.threshold,
-            "text_snippet":     text[:80],
+            "scam_score": float(scam_prob),
+            "flags": flags
         }
+    
 
     def predict_batch(self, texts: list) -> list:
         results = self._pipe(texts, top_k=None, batch_size=32)
@@ -809,16 +816,16 @@ if __name__ == "__main__":
         ("SAFE", "This is your bank confirming the wire transfer you authorized today was completed."),
         ("SAFE", "Hi, I am calling from Dr. Patel's office to follow up on your recent visit."),
     ]
-    print(f"\n  {'TRUE':5s}  {'PRED':5s}  {'PROB':6s}  {'CONF':8s}  TEXT")
+    print(f"\n  {'TRUE':5s}  {'PRED':5s}  {'PROB':6s}  {'FLAGS':8s}  TEXT")
     print(f"  {'─'*70}")
     correct = 0
     for true_label, text in test_cases:
         r = clf.predict(text)
-        pred = r["label"].upper()
+        pred = "SCAM" if r["scam_score"] >= clf.threshold else "SAFE"
         mark = "✓" if pred == true_label else "✗"
         if pred == true_label:
             correct += 1
-        print(f"  {true_label:5s}  {pred:5s}  {r['scam_probability']:.4f}  "
-              f"{r['confidence']:8s}  {mark}  {text[:55]}")
+        print(f"  {true_label:5s}  {pred:5s}  {r['scam_score']:.4f}  "
+              f"{str(r['flags']):8s}  {mark}  {text[:55]}")
     print(f"\n  Sanity accuracy: {correct}/{len(test_cases)}")
     print(f"{'─'*55}\n")
