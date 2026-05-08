@@ -1,0 +1,5 @@
+{
+  "decision": "SAFE",
+  "risk_score": 41.0,
+  "explanation": "Transcript: \n\nText flags: []\nAcoustic anomaly: unnatural pauses detected\n\nReasoning:\n- Text scam score: 0.00\n- Acoustic fake probability: 0.82\n- No major contradictions detected\n\nFinal Risk Score: 41.00"
+}

@@ -2,7 +2,7 @@ from agent import ScamDetectionAgent
 
 agent = ScamDetectionAgent()
 
-result = agent.evaluate("sample.wav")
+result = agent.evaluate("scam.mp3")
 
 print("\n===== SCAM DETECTION RESULT =====\n")
 

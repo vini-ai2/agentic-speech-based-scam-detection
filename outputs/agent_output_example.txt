@@ -1,0 +1,19 @@
+===== SCAM DETECTION RESULT =====
+
+Decision     : SAFE
+Risk Score   : 41.0/100
+
+Explanation:
+Transcript: 
+
+Text flags: []
+Acoustic anomaly: unnatural pauses detected
+
+Reasoning:
+- Text scam score: 0.00
+- Acoustic fake probability: 0.82
+- No major contradictions detected
+
+Final Risk Score: 41.00
+
+================================

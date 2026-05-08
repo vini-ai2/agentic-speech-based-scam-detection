@@ -1,0 +1,11 @@
+/.venv/
+/agent/__pycache__/
+/data/
+/models/
+/outputs/ppt_assets/
+*.pyc
+*.pth
+*.pt
+*.safetensors
+*.wav
+*.mp3
