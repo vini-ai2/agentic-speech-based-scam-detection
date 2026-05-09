@@ -9,3 +9,4 @@
 *.safetensors
 *.wav
 *.mp3
+.env
