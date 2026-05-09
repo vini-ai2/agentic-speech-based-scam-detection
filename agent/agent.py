@@ -288,11 +288,11 @@ class ScamDetectionAgent:
         # Step 2: dynamic fusion
         asr_present = bool(transcript and transcript.strip())
         if not asr_present:
-            w_acoustic = 0.8
-            w_text = 0.2
-        else:
             w_acoustic = 0.5
             w_text = 0.5
+        else:
+            w_acoustic = 0.3
+            w_text = 0.7
 
         risk_score = (w_acoustic * acoustic["fake_probability"] + w_text * text["scam_score"]) * 100
 
