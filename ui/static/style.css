@@ -1,14 +1,296 @@
-body { background: #071021; color: #cfeef7; }
-.card { border-radius: 12px; background: #0b1220; color: #cfeef7; }
-.navbar { background: linear-gradient(90deg,#001219,#001f2f); }
-.navbar-brand { font-weight: 700; color: #06b6d4 !important; }
-.btn-cyan { background: linear-gradient(90deg,#06b6d4,#00bcd4); color: #04202a; border: none; }
-.btn-cyan:hover { opacity: 0.95; }
-.progress { background: #02101a; }
-pre { white-space: pre-wrap; word-break: break-word; color: #dff7fb; background: #04121a; }
-.card .card-body a { color: #8ff0f7; }
-.badge { color: #071021; font-weight:600; }
+/* =========================
+   GLOBAL
+========================= */
 
-/* Make modal match dark theme */
-.modal-content { background: #071021; border: 1px solid rgba(255,255,255,0.04); }
+body {
+    background:
+        radial-gradient(circle at top left, #111827 0%, #050816 45%),
+        #050816;
 
+    color: #f3f4f6;
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+}
+
+/* smooth animations */
+
+* {
+    transition: all 0.25s ease;
+}
+
+/* =========================
+   NAVBAR
+========================= */
+
+.navbar {
+    background: rgba(10, 10, 15, 0.75) !important;
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 14px 24px;
+}
+
+.navbar-brand {
+    font-weight: 700;
+    font-size: 1.3rem;
+    letter-spacing: 0.5px;
+    color: #22d3ee !important;
+}
+
+.navbar-text {
+    color: #9ca3af !important;
+}
+
+/* =========================
+   MAIN CONTAINER
+========================= */
+
+.main-container {
+    max-width: 1300px;
+}
+
+/* =========================
+   CARDS
+========================= */
+
+.card {
+    background: rgba(17, 24, 39, 0.75);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 22px;
+    overflow: hidden;
+
+    box-shadow:
+        0 10px 25px rgba(0,0,0,0.35),
+        inset 0 1px 0 rgba(255,255,255,0.02);
+
+    backdrop-filter: blur(12px);
+}
+
+.glass-card {
+    background: rgba(15, 23, 42, 0.6);
+}
+
+/* hover effect */
+
+.hover-card:hover {
+    transform: translateY(-6px) scale(1.01);
+
+    box-shadow:
+        0 20px 40px rgba(0,0,0,0.5),
+        0 0 18px rgba(34,211,238,0.08);
+}
+
+/* =========================
+   CARD CONTENT
+========================= */
+
+.card-body {
+    padding: 28px;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 18px;
+    color: #ffffff;
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+.btn-cyan {
+    background: linear-gradient(
+        135deg,
+        #22d3ee,
+        #06b6d4
+    );
+
+    border: none;
+    color: #041018;
+    font-weight: 700;
+    padding: 10px 18px;
+    border-radius: 14px;
+
+    box-shadow:
+        0 6px 18px rgba(34,211,238,0.25);
+}
+
+.btn-cyan:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 12px 24px rgba(34,211,238,0.35);
+}
+
+.btn-outline-custom {
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #e5e7eb;
+    border-radius: 14px;
+    padding: 10px 18px;
+    background: rgba(255,255,255,0.02);
+}
+
+.btn-outline-custom:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: #22d3ee;
+    color: #22d3ee;
+}
+
+/* =========================
+   INPUTS
+========================= */
+
+.form-control {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: white;
+    border-radius: 14px;
+    padding: 12px;
+}
+
+.form-control:focus {
+    background: rgba(255,255,255,0.05);
+    color: white;
+
+    border-color: #22d3ee;
+
+    box-shadow:
+        0 0 0 4px rgba(34,211,238,0.15);
+}
+
+/* =========================
+   PROGRESS BAR
+========================= */
+
+.progress {
+    height: 20px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.06);
+}
+
+.progress-bar {
+    font-weight: 600;
+    background: linear-gradient(
+        90deg,
+        #22d3ee,
+        #0ea5e9
+    );
+}
+
+/* =========================
+   BADGES
+========================= */
+
+.badge {
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+/* =========================
+   AUDIO PLAYER
+========================= */
+
+audio {
+    border-radius: 14px;
+    width: 100%;
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* =========================
+   PRE BLOCKS
+========================= */
+
+pre {
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.06);
+
+    padding: 18px;
+    border-radius: 16px;
+
+    color: #e5e7eb;
+
+    overflow-x: auto;
+    white-space: pre-wrap;
+}
+
+/* =========================
+   LISTS
+========================= */
+
+ul li {
+    margin-bottom: 10px;
+    color: #d1d5db;
+}
+
+/* =========================
+   MODAL
+========================= */
+
+.modal-content {
+    background: #0b1120;
+    border-radius: 24px;
+
+    border: 1px solid rgba(255,255,255,0.06);
+
+    box-shadow:
+        0 20px 50px rgba(0,0,0,0.6);
+}
+
+.modal-header,
+.modal-footer {
+    border-color: rgba(255,255,255,0.06);
+}
+
+/* =========================
+   SCROLLBAR
+========================= */
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0b1120;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #1f2937;
+    border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #22d3ee;
+}
+
+/* =========================
+   FORCE TEXT VISIBILITY
+========================= */
+
+.text-muted,
+.small,
+.card-text,
+.card-subtitle,
+p,
+li,
+pre,
+h6 {
+    color: #e5e7eb !important;
+}
+
+/* Bootstrap light backgrounds override */
+
+.bg-light {
+    background: rgba(255,255,255,0.05) !important;
+    color: #f9fafb !important;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+}
+
+/* pre/code blocks */
+
+pre {
+    background: rgba(255,255,255,0.04) !important;
+    color: #f9fafb !important;
+}
