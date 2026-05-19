@@ -16,8 +16,11 @@ models/
 *.safetensors
 
 # Data
-data/
-datasets/
+
+/datasets/
+/data/*
+!/agent/data/
+!/agent/data/**
 
 # Audio files
 *.wav
