@@ -1,0 +1,14 @@
+body { background: #071021; color: #cfeef7; }
+.card { border-radius: 12px; background: #0b1220; color: #cfeef7; }
+.navbar { background: linear-gradient(90deg,#001219,#001f2f); }
+.navbar-brand { font-weight: 700; color: #06b6d4 !important; }
+.btn-cyan { background: linear-gradient(90deg,#06b6d4,#00bcd4); color: #04202a; border: none; }
+.btn-cyan:hover { opacity: 0.95; }
+.progress { background: #02101a; }
+pre { white-space: pre-wrap; word-break: break-word; color: #dff7fb; background: #04121a; }
+.card .card-body a { color: #8ff0f7; }
+.badge { color: #071021; font-weight:600; }
+
+/* Make modal match dark theme */
+.modal-content { background: #071021; border: 1px solid rgba(255,255,255,0.04); }
+

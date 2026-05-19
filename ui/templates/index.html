@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Analyze an audio file</h5>
+        <form method="post" enctype="multipart/form-data">
+          <div class="mb-3">
+            <input class="form-control" type="file" name="audio" accept="audio/*" required>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-cyan" type="submit">Upload & Analyze</button>
+            <button type="button" class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#examplesModal">Examples</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-2 text-muted">Tips</h6>
+        <ul>
+          <li>Prefer WAV/MP3 files with clear speech.</li>
+          <li>If ASR is a stub, results may be limited locally.</li>
+          <li>Enable `AGENTIC_LLM_API_KEY` for LLM explanations.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Examples Modal -->
+    <div class="modal fade" id="examplesModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-dark text-light">
+          <div class="modal-header">
+            <h5 class="modal-title">Examples & Tips</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Try uploading a short call recording. Example curl:</p>
+            <pre class="bg-black p-2 small">curl -X POST -F "audio=@call.wav" http://localhost:8501/api/analyze</pre>
+            <p class="mt-2">Sample guidance:</p>
+            <ul>
+              <li>Clear single-speaker samples produce better transcripts.</li>
+              <li>Use WAV or MP3 formats.</li>
+              <li>Enable the LLM API key for richer explanations.</li>
+            </ul>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h5 class="card-title">Quick Demo</h5>
+        <p class="card-text">Use the API endpoint for programmatic access:</p>
+        <pre class="small bg-light p-2">curl -X POST -F "audio=@call.wav" http://localhost:8501/api/analyze</pre>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="card-subtitle text-muted">Tool Status</h6>
+        <p class="small">ASR and acoustic tool selection is automatic from the repo; warnings will be shown in results.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

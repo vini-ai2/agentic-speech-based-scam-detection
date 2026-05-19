@@ -1,0 +1,17 @@
+{
+  "decision": "SCAM",
+  "risk_score": 76.46,
+  "explanation": "Transcript: Hello Oh, okay. Yeah. Oh, yeah. all of them. Now today I will be giving you a new security code. Okay? Alright. Now in order for me to give you a security code I just need to ensure that you are the right, you know, authorized card holder so if you can just confirm your card with me, okay? Alright. Which card are you going to be using? Your visa or your master card?\n\nText flags: ['security code', 'authorized card holder', 'confirm your card', 'confirm your card with me', 'your visa or your master card', 'possible_cvv_or_security_code', 'pressure_or_urgency', 'concept:card=card,master,visa', 'concept:verification=authorized,confirm,holder', 'concept:security=code,security', 'concept:pressure=now,today']\nAcoustic anomaly: bonafide\n\nReasoning:\n- Text scam score: 1.00\n- Acoustic fake probability: 0.22\n- Fusion weights: acoustic=0.30, text=0.70\n- No major contradictions detected\n\nFinal Risk Score: 76.46\n\nLLM Explainability:\n* Decision: SCAM (risk score: 76.46)\n* Flags: security code request, card confirmation, pressure/urgency\n* Uncertainties: acoustic fake probability (21.53%) contradicts bonafide anomaly detection",
+  "llm_explanation": "* Decision: SCAM (risk score: 76.46)\n* Flags: security code request, card confirmation, pressure/urgency\n* Uncertainties: acoustic fake probability (21.53%) contradicts bonafide anomaly detection",
+  "warnings": [],
+  "tool_sources": {
+    "asr": "tool-ab",
+    "acoustic": "tool-ab"
+  },
+  "fusion_details": {
+    "asr_present": true,
+    "w_acoustic": 0.3,
+    "w_text": 0.7
+  },
+  "filename": "elder-fraud-telemarketing-scam-call-recording-112718.wav"
+}
