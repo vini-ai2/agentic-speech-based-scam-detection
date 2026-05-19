@@ -1,12 +1,16 @@
 # =========================================================
 # build_c_final.py
-# FAST + CLEAN + REALTIME TOOL C PIPELINE
+# STABLE PYTORCH + CUDA TOOL C PIPELINE
 # =========================================================
 
 import os
-import re
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+import math
 import torch
+import numpy as np
 import pandas as pd
+import torch.nn as nn
 
 from flashtext import KeywordProcessor
 
@@ -17,13 +21,17 @@ from transformers import (
     TrainingArguments,
 )
 
-from datasets import Dataset
+from torch.utils.data import Dataset
 
 from sklearn.model_selection import train_test_split
 
 from sklearn.metrics import (
     accuracy_score,
     precision_recall_fscore_support,
+)
+
+from sklearn.utils.class_weight import (
+    compute_class_weight
 )
 
 # =========================================================
@@ -42,7 +50,7 @@ MAX_LEN = 128
 
 BATCH_SIZE = 32
 
-EPOCHS = 2
+EPOCHS = 3
 
 LEARNING_RATE = 2e-5
 
@@ -55,36 +63,127 @@ DEVICE = (
 print(f"\n[+] Using device: {DEVICE}")
 
 # =========================================================
-# LOAD FEATURE DATASET
+# LOAD DATASET
 # =========================================================
 
 print("\n[+] Loading dataset...")
 
-df = pd.read_csv(FEATURE_DATASET_PATH)
+df = pd.read_csv(
+    FEATURE_DATASET_PATH
+)
 
 # =========================================================
 # CLEAN DATA
 # =========================================================
 
-df = df.dropna(subset=["text", "label"])
+df = df.dropna(
+    subset=["text", "label"]
+)
 
-df = df[df["label"].isin([0, 1])]
+df = df[
+    df["label"].isin([0, 1])
+]
 
-df["text"] = df["text"].astype(str)
+df["text"] = (
+    df["text"]
+    .astype(str)
+)
 
 print("\nDataset Shape:")
 print(df.shape)
 
 # =========================================================
-# LOAD + CLEAN LEXICON
+# LOAD LEXICON
 # =========================================================
 
-print("\n[+] Loading lexicon...")
+print("\n[+] Loading scam lexicon...")
 
-lexicon_df = pd.read_csv(LEXICON_PATH)
+lexicon_df = pd.read_csv(
+    LEXICON_PATH
+)
+# =========================================================
+# MANUAL HIGH-RISK PHRASES
+# =========================================================
+
+manual_phrases = [
+
+    # Financial
+    ("bitcoin", "financial", 2.5),
+    ("gift cards", "financial", 2.5),
+    ("wire transfer", "financial", 2.5),
+    ("bank account", "financial", 2.0),
+    ("payment required", "financial", 2.0),
+
+    # Authority
+    ("irs", "authority", 3.0),
+    ("government", "authority", 2.0),
+    ("police", "authority", 2.0),
+    ("legal action", "threat", 2.5),
+    ("lawsuit", "threat", 2.5),
+
+    # Tech scams
+    ("malware", "technical", 2.5),
+    ("security alert", "technical", 2.5),
+    ("infected", "technical", 2.0),
+    ("remote access", "technical", 3.0),
+
+    # Threat
+    ("account suspension", "threat", 2.5),
+    ("account termination", "threat", 2.5),
+    ("arrest warrant", "threat", 3.0),
+
+    # Urgency
+    ("immediately", "urgency", 1.5),
+    ("urgent", "urgency", 1.5),
+    ("act now", "urgency", 2.0),
+]
+
+manual_df = pd.DataFrame(
+
+    manual_phrases,
+
+    columns=[
+        "phrase",
+        "category",
+        "weight"
+    ]
+)
+
+manual_df["spam_ratio"] = 1.0
+manual_df["spam_count"] = 999
+
+lexicon_df = pd.concat(
+
+    [lexicon_df, manual_df],
+
+    ignore_index=True
+)
 
 # =========================================================
-# REMOVE NOISY / WEAK PHRASES
+# IMPORTANT UNIGRAMS
+# =========================================================
+
+IMPORTANT_UNIGRAMS = {
+
+    "bitcoin",
+    "irs",
+    "bank",
+    "crypto",
+    "gift",
+    "warrant",
+    "arrest",
+    "lawsuit",
+    "wire",
+    "refund",
+    "medicare",
+    "paypal",
+    "amazon",
+    "government",
+    "police",
+}
+
+# =========================================================
+# GENERIC WORDS
 # =========================================================
 
 GENERIC_WORDS = {
@@ -95,51 +194,53 @@ GENERIC_WORDS = {
     "reply",
     "today",
     "okay",
-    "call",
-    "free",
     "message",
     "txt",
     "mobile",
-    "text",
     "customer",
     "service",
     "claim",
-    "send",
     "receive",
+    "hello",
+    "thanks",
+    "please",
 }
 
-# Keep only strong indicators
-lexicon_df = lexicon_df[
-    lexicon_df["spam_ratio"] >= 0.85
-]
-
-# Remove weak phrases
-lexicon_df = lexicon_df[
-    lexicon_df["spam_count"] >= 10
-]
-
-# Remove generic words
-lexicon_df = lexicon_df[
-    ~lexicon_df["phrase"].isin(GENERIC_WORDS)
-]
-
-# Remove tiny single tokens
-lexicon_df = lexicon_df[
-    lexicon_df["phrase"].str.len() > 3
-]
-
 # =========================================================
-# PRIORITIZE BIGRAMS + TRIGRAMS
+# CLEAN LEXICON
 # =========================================================
+
+lexicon_df = lexicon_df[
+    lexicon_df["spam_ratio"] >= 0.80
+]
+
+lexicon_df = lexicon_df[
+    lexicon_df["spam_count"] >= 5
+]
+
+lexicon_df = lexicon_df[
+    ~lexicon_df["phrase"].isin(
+        GENERIC_WORDS
+    )
+]
 
 lexicon_df["ngram_size"] = (
+
     lexicon_df["phrase"]
     .str.split()
     .apply(len)
 )
 
 lexicon_df = lexicon_df[
-    lexicon_df["ngram_size"] >= 2
+
+    (lexicon_df["ngram_size"] >= 2)
+
+    |
+
+    (
+        lexicon_df["phrase"]
+        .isin(IMPORTANT_UNIGRAMS)
+    )
 ]
 
 print("\nFiltered Lexicon Size:")
@@ -159,7 +260,9 @@ for _, row in lexicon_df.iterrows():
 
     phrase = str(row["phrase"])
 
-    keyword_processor.add_keyword(phrase)
+    keyword_processor.add_keyword(
+        phrase
+    )
 
     phrase_to_data[phrase] = {
 
@@ -200,36 +303,60 @@ def analyze_features(text):
         feature_score += weight
 
         if category not in category_scores:
+
             category_scores[category] = 0
 
         category_scores[category] += weight
 
-    normalized = min(feature_score, 1.0)
+    # =====================================================
+    # LOG NORMALIZATION
+    # =====================================================
+
+    normalized = (
+        math.log1p(feature_score)
+        / math.log1p(10)
+    )
+
+    normalized = min(
+        normalized,
+        1.0
+    )
 
     return {
 
-        "feature_score": round(normalized, 4),
+        "feature_score": round(
+            normalized,
+            4
+        ),
 
-        "matched_phrases": matched_phrases[:10],
+        "matched_phrases":
+            matched_phrases[:10],
 
-        "category_scores": category_scores,
+        "category_scores":
+            category_scores,
     }
 
 # =========================================================
 # BUILD ENHANCED TEXT
 # =========================================================
 
-print("\n[+] Building enhanced semantic inputs...")
+print("\n[+] Building semantic inputs...")
 
 def build_enhanced_text(text):
 
-    feature_data = analyze_features(text)
+    feature_data = analyze_features(
+        text
+    )
 
     features = []
 
-    for cat in feature_data["category_scores"]:
+    for cat in feature_data[
+        "category_scores"
+    ]:
 
-        features.append(f"{cat}_detected")
+        features.append(
+            f"{cat}_detected"
+        )
 
     enhanced = (
 
@@ -242,14 +369,17 @@ def build_enhanced_text(text):
         + " [MATCHED] "
 
         + " ".join(
-            feature_data["matched_phrases"]
+            feature_data[
+                "matched_phrases"
+            ]
         )
     )
 
     return enhanced
 
-df["enhanced_text"] = df["text"].apply(
-    build_enhanced_text
+df["enhanced_text"] = (
+    df["text"]
+    .apply(build_enhanced_text)
 )
 
 # =========================================================
@@ -267,8 +397,36 @@ train_df, val_df = train_test_split(
     stratify=df["label"]
 )
 
-print("\nTrain Shape:", train_df.shape)
-print("Validation Shape:", val_df.shape)
+print("\nTrain Shape:")
+print(train_df.shape)
+
+print("\nValidation Shape:")
+print(val_df.shape)
+
+# =========================================================
+# CLASS WEIGHTS
+# =========================================================
+
+class_weights = compute_class_weight(
+
+    class_weight="balanced",
+
+    classes=np.unique(
+        train_df["label"]
+    ),
+
+    y=train_df["label"]
+)
+
+class_weights = torch.tensor(
+
+    class_weights,
+
+    dtype=torch.float
+).to(DEVICE)
+
+print("\nClass Weights:")
+print(class_weights)
 
 # =========================================================
 # TOKENIZER
@@ -280,85 +438,123 @@ tokenizer = AutoTokenizer.from_pretrained(
     MODEL_NAME
 )
 
-# =========================================================
-# TOKENIZATION
-# =========================================================
-
-def tokenize(batch):
-
-    return tokenizer(
-
-        batch["enhanced_text"],
-
-        padding="max_length",
-
-        truncation=True,
-
-        max_length=MAX_LEN,
-    )
+print("\n[+] Tokenizer loaded.")
 
 # =========================================================
-# DATASETS
+# PYTORCH DATASET
 # =========================================================
 
-train_dataset = Dataset.from_pandas(
-    train_df[["enhanced_text", "label"]]
-)
+class ScamDataset(Dataset):
 
-val_dataset = Dataset.from_pandas(
-    val_df[["enhanced_text", "label"]]
-)
+    def __init__(
 
-train_dataset = train_dataset.map(
-    tokenize,
-    batched=True
-)
+        self,
 
-val_dataset = val_dataset.map(
-    tokenize,
-    batched=True
-)
+        texts,
+
+        labels,
+
+        tokenizer,
+
+        max_len
+    ):
+
+        self.texts = texts
+        self.labels = labels
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+
+    def __len__(self):
+
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+
+        text = str(
+            self.texts[idx]
+        )
+
+        label = int(
+            self.labels[idx]
+        )
+
+        encoding = self.tokenizer(
+
+            text,
+
+            truncation=True,
+
+            padding="max_length",
+
+            max_length=self.max_len,
+
+            return_tensors="pt"
+        )
+
+        return {
+
+            "input_ids":
+                encoding["input_ids"]
+                .squeeze(0),
+
+            "attention_mask":
+                encoding["attention_mask"]
+                .squeeze(0),
+
+            "labels":
+                torch.tensor(
+                    label,
+                    dtype=torch.long
+                )
+        }
 
 # =========================================================
-# FORMAT
+# BUILD DATASETS
 # =========================================================
 
-train_dataset.set_format(
+print("\n[+] Building PyTorch datasets...")
 
-    type="torch",
+train_dataset = ScamDataset(
 
-    columns=[
-        "input_ids",
-        "attention_mask",
-        "label"
-    ]
+    train_df["enhanced_text"].tolist(),
+
+    train_df["label"].tolist(),
+
+    tokenizer,
+
+    MAX_LEN
 )
 
-val_dataset.set_format(
+val_dataset = ScamDataset(
 
-    type="torch",
+    val_df["enhanced_text"].tolist(),
 
-    columns=[
-        "input_ids",
-        "attention_mask",
-        "label"
-    ]
+    val_df["label"].tolist(),
+
+    tokenizer,
+
+    MAX_LEN
 )
+
+print("\n[+] Dataset creation complete.")
 
 # =========================================================
 # LOAD MODEL
 # =========================================================
 
-print("\n[+] Loading MiniLM...")
+print("\n[+] Loading MiniLM model...")
 
-model = AutoModelForSequenceClassification.from_pretrained(
-
-    MODEL_NAME,
-
-    num_labels=2
+model = (
+    AutoModelForSequenceClassification
+    .from_pretrained(
+        MODEL_NAME,
+        num_labels=2
+    )
 )
 
 model.to(DEVICE)
+
+print("\n[+] Model loaded successfully.")
 
 # =========================================================
 # METRICS
@@ -368,12 +564,18 @@ def compute_metrics(eval_pred):
 
     logits, labels = eval_pred
 
-    predictions = logits.argmax(axis=-1)
+    predictions = logits.argmax(
+        axis=-1
+    )
 
     precision, recall, f1, _ = (
+
         precision_recall_fscore_support(
+
             labels,
+
             predictions,
+
             average="binary"
         )
     )
@@ -395,6 +597,62 @@ def compute_metrics(eval_pred):
     }
 
 # =========================================================
+# CUSTOM TRAINER
+# =========================================================
+
+class WeightedTrainer(Trainer):
+
+    def compute_loss(
+
+        self,
+
+        model,
+
+        inputs,
+
+        return_outputs=False,
+
+        **kwargs
+    ):
+
+        labels = inputs.get("labels")
+
+        outputs = model(
+
+            input_ids=inputs[
+                "input_ids"
+            ],
+
+            attention_mask=inputs[
+                "attention_mask"
+            ]
+        )
+
+        logits = outputs.get(
+            "logits"
+        )
+
+        loss_fct = nn.CrossEntropyLoss(
+            weight=class_weights
+        )
+
+        loss = loss_fct(
+
+            logits.view(-1, 2),
+
+            labels.view(-1)
+        )
+
+        return (
+
+            (loss, outputs)
+
+            if return_outputs
+
+            else loss
+        )
+
+# =========================================================
 # TRAINING ARGS
 # =========================================================
 
@@ -408,15 +666,17 @@ training_args = TrainingArguments(
 
     learning_rate=LEARNING_RATE,
 
-    per_device_train_batch_size=BATCH_SIZE,
+    per_device_train_batch_size=
+        BATCH_SIZE,
 
-    per_device_eval_batch_size=BATCH_SIZE,
+    per_device_eval_batch_size=
+        BATCH_SIZE,
 
     num_train_epochs=EPOCHS,
 
     weight_decay=0.01,
 
-    logging_steps=50,
+    logging_steps=25,
 
     load_best_model_at_end=True,
 
@@ -431,7 +691,7 @@ training_args = TrainingArguments(
 # TRAINER
 # =========================================================
 
-trainer = Trainer(
+trainer = WeightedTrainer(
 
     model=model,
 
@@ -456,7 +716,7 @@ trainer.train()
 # EVALUATE
 # =========================================================
 
-print("\n[+] Evaluating...")
+print("\n[+] Evaluating model...")
 
 metrics = trainer.evaluate()
 
@@ -469,18 +729,22 @@ print(metrics)
 
 print("\n[+] Saving model...")
 
-trainer.save_model(MODEL_OUTPUT_DIR)
+trainer.save_model(
+    MODEL_OUTPUT_DIR
+)
 
-tokenizer.save_pretrained(MODEL_OUTPUT_DIR)
+tokenizer.save_pretrained(
+    MODEL_OUTPUT_DIR
+)
 
-print(f"\n[+] Saved to:")
+print("\n[+] Model Saved:")
 print(MODEL_OUTPUT_DIR)
 
 # =========================================================
 # REALTIME INFERENCE ENGINE
 # =========================================================
 
-print("\n[+] Building realtime inference engine...")
+print("\n[+] Building inference engine...")
 
 class ToolCScamDetector:
 
@@ -489,13 +753,22 @@ class ToolCScamDetector:
         self.device = DEVICE
 
         self.tokenizer = (
+
             AutoTokenizer
-            .from_pretrained(MODEL_OUTPUT_DIR)
+
+            .from_pretrained(
+                MODEL_OUTPUT_DIR
+            )
         )
 
         self.model = (
+
             AutoModelForSequenceClassification
-            .from_pretrained(MODEL_OUTPUT_DIR)
+
+            .from_pretrained(
+                MODEL_OUTPUT_DIR
+            )
+
             .to(self.device)
         )
 
@@ -508,10 +781,12 @@ class ToolCScamDetector:
     def predict(self, text):
 
         # ================================================
-        # FEATURE ENGINE
+        # FEATURE ANALYSIS
         # ================================================
 
-        feature_data = analyze_features(text)
+        feature_data = analyze_features(
+            text
+        )
 
         # ================================================
         # ENHANCED TEXT
@@ -519,9 +794,13 @@ class ToolCScamDetector:
 
         features = []
 
-        for cat in feature_data["category_scores"]:
+        for cat in feature_data[
+            "category_scores"
+        ]:
 
-            features.append(f"{cat}_detected")
+            features.append(
+                f"{cat}_detected"
+            )
 
         enhanced_text = (
 
@@ -534,7 +813,10 @@ class ToolCScamDetector:
             + " [MATCHED] "
 
             + " ".join(
-                feature_data["matched_phrases"]
+
+                feature_data[
+                    "matched_phrases"
+                ]
             )
         )
 
@@ -556,7 +838,9 @@ class ToolCScamDetector:
         )
 
         inputs = {
+
             k: v.to(self.device)
+
             for k, v in inputs.items()
         }
 
@@ -566,10 +850,14 @@ class ToolCScamDetector:
 
         with torch.no_grad():
 
-            outputs = self.model(**inputs)
+            outputs = self.model(
+                **inputs
+            )
 
             probs = torch.softmax(
+
                 outputs.logits,
+
                 dim=-1
             )
 
@@ -578,38 +866,43 @@ class ToolCScamDetector:
             )
 
         # ================================================
-        # DYNAMIC CONFIDENCE FUSION
+        # FEATURE SCORE
         # ================================================
 
         feature_score = (
-            feature_data["feature_score"]
+            feature_data[
+                "feature_score"
+            ]
         )
 
-        # Strong explicit scam evidence
-        if feature_score >= 0.8:
+        # ================================================
+        # ADAPTIVE CONFIDENCE FUSION
+        # ================================================
 
-            semantic_weight = 0.55
-            feature_weight = 0.45
-
-        # Medium evidence
-        elif feature_score >= 0.5:
+        if feature_score >= 0.75:
 
             semantic_weight = 0.70
             feature_weight = 0.30
 
-        # Mostly semantic
+        elif feature_score >= 0.40:
+
+            semantic_weight = 0.80
+            feature_weight = 0.20
+
         else:
 
-            semantic_weight = 0.85
-            feature_weight = 0.15
+            semantic_weight = 0.90
+            feature_weight = 0.10
 
         final_score = (
 
-            semantic_weight * semantic_score
+            semantic_weight
+            * semantic_score
 
             +
 
-            feature_weight * feature_score
+            feature_weight
+            * feature_score
         )
 
         # ================================================
@@ -617,61 +910,181 @@ class ToolCScamDetector:
         # ================================================
 
         if final_score >= 0.85:
+
             risk = "HIGH"
 
         elif final_score >= 0.60:
+
             risk = "MEDIUM"
 
         else:
-            risk = "LOW"
 
-        # ================================================
-        # OUTPUT
-        # ================================================
+            risk = "LOW"
 
         return {
 
-            "semantic_score": round(
-                semantic_score,
-                4
-            ),
+            "semantic_score":
+                round(
+                    semantic_score,
+                    4
+                ),
 
-            "feature_score": round(
-                feature_score,
-                4
-            ),
+            "feature_score":
+                round(
+                    feature_score,
+                    4
+                ),
 
-            "final_score": round(
-                final_score,
-                4
-            ),
+            "final_score":
+                round(
+                    final_score,
+                    4
+                ),
 
-            "risk_level": risk,
+            "risk_level":
+                risk,
 
             "matched_phrases":
-                feature_data["matched_phrases"],
+
+                feature_data[
+                    "matched_phrases"
+                ],
 
             "category_scores":
-                feature_data["category_scores"],
+
+                feature_data[
+                    "category_scores"
+                ]
         }
 
 # =========================================================
 # QUICK TEST
 # =========================================================
 
-print("\n[+] Running test inference...")
+# =========================================================
+# INTEGRATED TEST SUITE
+# =========================================================
+
+print("\n[+] Running integrated Tool C test suite...\n")
+
+test_cases = [
+
+    {
+        "name": "Prize Scam",
+
+        "text": """
+        Congratulations! You have won a 2000 prize guaranteed.
+        Reply YES to claim your cash award now.
+        """
+    },
+
+    {
+        "name": "Urgency Scam",
+
+        "text": """
+        URGENT! We are trying to contact you regarding
+        your mobile number awarded 5000 cash.
+        Call now to claim.
+        """
+    },
+
+    {
+        "name": "Banking Scam",
+
+        "text": """
+        Your bank account statement shows unusual activity.
+        Immediate action required to avoid suspension.
+        """
+    },
+
+    {
+        "name": "Lottery Scam",
+
+        "text": """
+        You are the lucky winner of a guaranteed cash prize.
+        Reply within 24 hrs to receive your reward.
+        """
+    },
+
+    {
+        "name": "Recharge Scam",
+
+        "text": """
+        Recharge now and receive free talktime bonus.
+        Limited offer valid for 24 hrs only.
+        """
+    },
+
+    {
+        "name": "IRS Bitcoin Scam",
+
+        "text": """
+        This is the IRS.
+        Immediate Bitcoin payment required
+        to avoid legal action.
+        """
+    },
+
+    {
+        "name": "Tech Support Scam",
+
+        "text": """
+        Microsoft security alert.
+        Your device is infected with malware.
+        Call support immediately.
+        """
+    },
+
+    {
+        "name": "Gift Card Scam",
+
+        "text": """
+        Purchase gift cards immediately and send
+        the codes to avoid account termination.
+        """
+    },
+
+    {
+        "name": "Normal Friendly Message",
+
+        "text": """
+        Hey, are we still meeting tomorrow
+        for lunch at 1 PM?
+        """
+    },
+
+    {
+        "name": "Academic Message",
+
+        "text": """
+        Can you send me the notes from today's class?
+        I'll review them tonight.
+        """
+    }
+]
+
+# =========================================================
+# RUN TESTS
+# =========================================================
 
 detector = ToolCScamDetector()
 
-sample = """
-This is the IRS.
-Immediate Bitcoin payment is required
-to avoid legal action.
-"""
+for i, test in enumerate(test_cases):
 
-result = detector.predict(sample)
+    print("=" * 60)
 
-print("\nTEST RESULT:")
-print(result)
+    print(f"\nTEST {i+1}: {test['name']}")
+
+    print("\nINPUT:")
+    print(test["text"])
+
+    result = detector.predict(
+        test["text"]
+    )
+
+    print("\nOUTPUT:")
+    print(result)
+
+    print("\n")
 
 print("\n[+] TOOL C READY")
