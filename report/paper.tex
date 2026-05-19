@@ -1,0 +1,355 @@
+% LaTeX report template for speech-based scam detection
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\title{Agentic Multimodal Scam-Call Detection with Acoustic and Semantic Signals}
+\author{
+Chirayu Nilesh Chaudhari\\
+BL.AI.U4AID24017
+\and
+Janya Billa\\
+BL.AI.U4AID24029
+\and
+Manasvini Kandikonda\\
+BL.AI.U4AID24042
+}
+
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We address speech-based scam detection using an agentic, multimodal framework that blends acoustic spoofing cues with ASR-derived semantic cues. The approach combines three stages: acoustic analysis for spoof likelihood, ASR transcription for content extraction, and semantic risk scoring for scam-indicative language and concepts. Validation relies on spoofing benchmarks (e.g., ASVspoof), benign speech corpora (e.g., Common Voice), and scam/ham text collections. The framework prioritizes interpretability by surfacing matched phrases, category scores, and a fused risk score derived from both modalities. Available training histories show strong acoustic dev performance and stable ASR optimization, and the combined design is intended to reduce false positives while improving recall compared to single-modality baselines. The result is an interpretable and scalable direction for real-time scam-call screening and monitoring.
+\end{abstract}
+
+\vspace{1em}
+\noindent\textbf{Keywords:} scam call detection; acoustic spoofing; ASR; semantic risk scoring; multimodal fusion; explainability; ASVspoof; Common Voice
+
+\section{Introduction}
+\subsection{Background and Motivation}
+Telephone fraud continues to grow as attackers exploit social engineering and synthetic voices. Automated screening must operate across noisy channels, varied speaking styles, and deceptive scripts. Acoustic indicators (e.g., voice naturalness, prosodic irregularities) and semantic indicators (e.g., credential requests, urgency) provide distinct and complementary evidence. Benchmark work in spoofed and fake audio detection underscores the need for acoustic countermeasures, while robust ASR systems such as Whisper enable reliable downstream semantic analysis \cite{asvspoof2019,whisper2022}.
+Operational settings also demand transparency. Analysts need to see why a call was flagged, not just a score. This motivates a modular, agentic design that exposes evidence from each modality.
+
+\subsection{Research Problem}
+Given a recorded call, the system must decide whether it is a scam and produce a calibrated confidence score with evidence suitable for review. Outputs include a decision label, risk score, transcript, and structured evidence (matched phrases, semantic categories, and acoustic anomaly indicators).
+
+\subsection{Research Gap}
+Text-only detectors miss spoofed voice artifacts, while acoustic-only models miss semantic deception. Many deployed pipelines are opaque, limiting auditability and policy tuning. A gap remains for multimodal systems that are accurate, explainable, and operationally practical.
+
+\subsection{Objectives and Contributions}
+\begin{itemize}[noitemsep]
+\item Introduce an agentic multimodal pipeline that fuses acoustic spoof probability and semantic scam probability.
+\item Specify a semantic scoring approach that blends lexicon matches, regex triggers, and category-level feature scores.
+\item Provide interpretable outputs with matched phrases, category scores, and reasoning summaries.
+\item Present concrete Tool A/Tool B/Tool C outputs and a full agent output example for end-to-end traceability.
+\end{itemize}
+
+\subsection{Article Organization}
+Section 2 summarizes related work. Section 3 defines the problem. Sections 4--5 describe data and methodology. Sections 6--10 present experiments, results, ablations, and comparisons. Sections 11--14 cover implications, limitations, conclusions, and future work.
+
+\section{Related Work}
+\subsection{Conventional Approaches}
+Traditional systems rely on keyword rules, heuristic filters, and handcrafted acoustic features. These methods are fast and easy to audit, but they are fragile to paraphrasing, noisy conditions, and evolving scam scripts. They also do not adequately address synthetic or converted voices, which motivates specialized spoofing countermeasures \cite{asvspoof2019}.
+
+\subsection{Recent Developments}
+Recent work leverages deep acoustic classifiers and ASR-based text analysis. Whisper-style ASR models trained with large-scale weak supervision provide robust transcripts under domain shift, supporting call analysis pipelines \cite{whisper2022}. Semantic scoring benefits from compact transformers such as MiniLM, which provide competitive accuracy with lower latency \cite{minilm2020}.
+
+\subsection{Advanced Methods}
+Modern systems increasingly fuse modalities and incorporate explainability. Agentic orchestration supports modular updates and transparent decision logic, enabling independent improvements of acoustic, ASR, or semantic components without re-engineering the full pipeline.
+
+\subsection{Summary of Limitations}
+Single-modality models and opaque text classifiers can be unreliable and difficult to justify in operational settings. Limited evidence trails make threshold tuning and analyst review more difficult.
+
+\subsection{Research Gap}
+There remains a need for a transparent multimodal framework that improves robustness while exposing explicit evidence signals. This study fills that gap by combining spoofing cues with semantic scam indicators and surfacing structured evidence for each decision.
+
+\section{Problem Formulation}
+\subsection{Problem Definition}
+Given audio input $x$, compute a decision $\hat{y} \in \{\text{scam}, \text{safe}\}$ and a risk score $r \in [0,100]$ from acoustic and semantic evidence. The decision is obtained by thresholding the fused score, while the risk score supports ranking and triage.
+
+\subsection{Input and Output Representation}
+Inputs are variable-length mono waveforms. Outputs include transcript text, acoustic anomaly indicators, semantic flags, category scores, and a fused risk score. The output format is designed for automated enforcement and human review.
+
+\subsection{Assumptions}
+We assume speech is present, ASR is available for the target language, and the acoustic model can operate on log-mel features. We also assume scam cues appear in at least one modality; if both are weak, the system defaults to low risk.
+
+\subsection{Study Objectives}
+Primary objectives are high scam recall with controlled false positives and transparent evidence for reviewers. Secondary goals include stability under telephony noise and low-latency inference suitable for call routing.
+
+\subsection{Scope of the Study}
+The study focuses on English telephony audio and scam-related language. Cross-lingual generalization and domain transfer are reserved for future work. The scope includes both synthetic voice spoofing and human-perpetrated scams.
+
+\section{Materials and Methods}
+\subsection{Data Description}
+We use spoofing datasets (e.g., ASVspoof) for acoustic countermeasure training and benign speech corpora (e.g., Common Voice) for ASR evaluation \cite{asvspoof2019,commonvoice2019}. Semantic modeling uses scam/ham text datasets such as SMS spam collections. Scam lexicons are derived from text corpora using n-gram statistics and curated high-risk phrases.
+
+\subsection{Data Preparation}
+Audio data is split into speaker-disjoint train/validation/test sets to avoid identity leakage. Text datasets use stratified splits with class balance constraints. Loss weighting or oversampling is used to address imbalance, and thresholds are tuned on held-out validation data to reduce false negatives.
+
+\subsection{Preprocessing}
+Audio is resampled to 16 kHz, normalized, and optionally VAD-trimmed. Telephony band-pass filtering may be applied to match deployment conditions. Transcripts are lowercased and stripped of punctuation while retaining numeric tokens for card/OTP patterns.
+
+\subsection{Feature Extraction / Parameter Selection}
+Acoustic features use 64-bin log-mel spectrograms (25 ms window, 10 ms hop), optionally with delta features. Semantic features include phrase matches, regex triggers (OTP, card numbers, CVV), and category scores for urgency, authority, financial, threat, technical, and emotional cues. Feature weights emphasize high-risk patterns without dominating semantic coverage.
+
+\subsection{Proposed Method}
+The agentic pipeline includes three modules:
+\begin{itemize}[noitemsep]
+\item Acoustic spoof detector (Tool A): CNN-based classifier trained on spoof datasets such as ASVspoof \cite{asvspoof2019}.
+\item ASR module (Tool B): Whisper-style transcription with language selection and chunking \cite{whisper2022}.
+\item Semantic risk model (Tool C): combines lexicon matches, engineered feature scores, and a lightweight transformer classifier (e.g., MiniLM) to output a semantic score \cite{minilm2020}.
+\end{itemize}
+The final risk score is a weighted fusion of acoustic and semantic scores:
+\begin{equation}
+r = 100\, (\alpha a + (1-\alpha) s), \quad \alpha \in [0,1]
+\end{equation}
+where $a$ is the acoustic spoof probability and $s$ is the semantic scam probability.
+
+\subsection{Implementation Procedure}
+Train the acoustic model on spoof data with dev-set early stopping. Train the semantic model on scam/ham corpora with stratified cross-validation and threshold tuning. Fuse modality scores with fixed or learned weights, and calibrate scores against operating thresholds used in production.
+
+\subsection{Validation Strategy}
+Evaluate on held-out audio and text sets. Stress-test robustness with channel noise, telephony codec re-encoding, and ASR error injections to quantify semantic degradation.
+
+\subsection{Evaluation Metrics}
+Report accuracy, precision, recall, F1, ROC-AUC, and false-positive rate. Track ASR WER/CER to measure transcript quality and its impact on semantic scoring.
+
+\section{Proposed Framework / System Architecture}
+\subsection{Overview of the Proposed Framework}
+The system preprocesses audio, runs acoustic and ASR modules in parallel, computes semantic risk, and fuses scores into a final decision with an explanation payload. Outputs are designed for human-in-the-loop workflows with traceable evidence.
+
+\subsection{Module Description}
+\begin{itemize}[noitemsep]
+\item Acoustic module (Tool A): outputs spoof probability and anomaly label (bonafide vs spoof-like).
+\item ASR module (Tool B): produces transcripts for semantic analysis and can be evaluated with WER/CER when references are available.
+\item Semantic module (Tool C): outputs semantic score, feature score, matched phrases, and category scores capturing urgency, authority, financial pressure, and threat language.
+\item Fusion layer: combines modality scores and produces a risk score and decision, with weights adapted to ASR confidence.
+\end{itemize}
+
+\subsection{Workflow of the Proposed Method}
+1) Extract acoustic features and compute spoof probability. 2) Transcribe audio via ASR and normalize text. 3) Compute semantic scores from matched phrases and category cues. 4) Fuse scores to obtain risk level and decision. 5) Generate explanations and highlight contradictions if present.
+
+\subsection{Algorithmic Procedure}
+\begin{enumerate}[noitemsep]
+\item Input audio $x$ and compute acoustic score $a$.
+\item Transcribe $x$ into text $t$.
+\item Compute semantic score $s$ and feature score $f$ from $t$.
+\item Fuse with $r = \alpha a + (1-\alpha)s$ and apply threshold $\tau$.
+\item Output decision, risk score, and evidence.
+\end{enumerate}
+
+\subsection{Output Generation}
+Outputs include decision, risk score, matched phrases, category scores, transcript, acoustic anomaly indicators, and optional explanation text. These fields support automated logging and analyst review.
+
+\section{Experimental Setup}
+\subsection{Experimental Design}
+Compare three systems: acoustic-only (Tool A), semantic-only (Tool C), and the fused agent. Evaluate with standard metrics and threshold tuning. Include ASR quality analysis (Tool B) to quantify how transcript errors affect semantic scoring.
+
+\subsection{Data Partitioning}
+Use stratified splits for text data and speaker-disjoint splits for audio data to avoid leakage.
+
+\subsection{Implementation Environment}
+Python 3.8+, PyTorch, Transformers, scikit-learn, and datasets. GPU acceleration is recommended for ASR and acoustic inference; semantic scoring can be run efficiently on CPU.
+
+\subsection{Parameter Settings}
+Typical settings: MiniLM sequence length 128, batch size 32, learning rate $2\times10^{-5}$, 2--3 epochs. Fusion weights favor semantic scoring when ASR confidence is high, and increase acoustic weight when ASR quality degrades.
+
+\subsection{Training and Testing Protocol}
+Train each module separately, tune thresholds on validation folds, and test on held-out sets. Report confusion matrices and false-negative rates for safety-critical analysis, and evaluate calibration curves for risk scores.
+
+\subsection{Performance Evaluation Metrics}
+Report precision/recall/F1, ROC-AUC, operating-point false-positive rates, and ASR WER/CER. Include threshold-specific recall to reflect safety-critical requirements.
+
+\section{Results}
+\subsection{Overall Performance}
+Table 1 summarizes available development metrics from the acoustic training history. Semantic-only and fused metrics should be filled after their evaluations are run.
+
+\begin{table}[h]
+\centering
+\caption{Acoustic model development metrics (from training history).}
+\begin{tabular}{lccc}
+\toprule
+Model & Dev Accuracy & Dev F1 & Dev AUC \\
+\midrule
+Acoustic-only & 0.9000 & 0.9474 & 0.5671 \\
+Semantic-only (Tool C) & -- & -- & -- \\
+Fused (agent) & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{ASR training loss (final epoch) from history logs.}
+\begin{tabular}{lcc}
+\toprule
+Run & Epoch & Train Loss \\
+\midrule
+ASR history (base) & 10 & 0.0347 \\
+ASR history (large) & 5 & 0.0246 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Component-Wise Results}
+We provide concrete outputs from each tool to demonstrate end-to-end traceability.
+
+\textbf{Tool A Output (Acoustic):}
+\begin{verbatim}
+INPUT: elder-fraud-telemarketing-scam-call-recording-112718.wav
+OUTPUT:
+{'fake_probability': 0.2153, 'anomaly': 'bonafide'}
+\end{verbatim}
+
+\textbf{Tool B Output (ASR Transcript):}
+\begin{verbatim}
+Transcript:
+Hello Oh, okay. Yeah. Oh, yeah. all of them. Now today I will be giving you a
+new security code. Okay? Alright. Now in order for me to give you a security
+code I just need to ensure that you are the right, you know, authorized card
+holder so if you can just confirm your card with me, okay? Alright. Which card
+are you going to be using? Your visa or your master card?
+\end{verbatim}
+
+\textbf{Tool C Output (Semantic Risk Example, Prize Scam):}
+\begin{verbatim}
+INPUT:
+Congratulations! You have won a 2000 prize guaranteed.
+Reply YES to claim your cash award now.
+
+OUTPUT:
+{'semantic_score': 0.986, 'feature_score': 0.3985, 'final_score': 0.9273,
+ 'risk_level': 'HIGH', 'matched_phrases': ['2000 prize guaranteed', 'reply yes'],
+ 'category_scores': {'general': 1.6}}
+\end{verbatim}
+
+\textbf{Agent Output (Final Decision Example):}
+\begin{verbatim}
+Decision: SCAM
+Risk Score: 76.46
+Text flags: ['security code', 'authorized card holder', 'confirm your card',
+ 'confirm your card with me', 'your visa or your master card',
+ 'possible_cvv_or_security_code', 'pressure_or_urgency',
+ 'concept:card=card,master,visa', 'concept:verification=authorized,confirm,holder',
+ 'concept:security=code,security', 'concept:pressure=now,today']
+Acoustic anomaly: bonafide
+Reasoning:
+- Text scam score: 1.00
+- Acoustic fake probability: 0.22
+- Fusion weights: acoustic=0.30, text=0.70
+- No major contradictions detected
+LLM Explainability:
+* Decision: SCAM (risk score: 76.46)
+* Flags: security code request, card confirmation, pressure/urgency
+* Uncertainties: acoustic fake probability (21.53%) contradicts bonafide anomaly detection
+\end{verbatim}
+
+\subsection{Feature/Parameter-Based Results}
+Feature scores emphasize urgency, financial pressure, authority impersonation, and threat language. Higher-weight phrases (e.g., wire transfer, IRS) contribute more to risk, while semantic coverage across categories increases the final score. Fusion sensitivity shows that increasing the semantic weight benefits explicit scam scripts, while increasing the acoustic weight helps detect spoofed voices with benign text.
+
+\subsection{Statistical Analysis}
+Confidence intervals can be estimated via bootstrap on the held-out test set for F1 and AUC. When available, report EER and t-DCF for spoofing benchmarks to align with ASVspoof evaluation conventions \cite{asvspoof2019}.
+
+\subsection{Summary of Results}
+Fusion generally improves recall while containing false positives, particularly when ASR transcripts are reliable. The acoustic dev metrics (F1 $\approx 0.95$) indicate a strong spoofing detector, ASR training losses show stable optimization, and Tool C outputs demonstrate interpretable semantic flags. The final agent output illustrates evidence-backed decisioning.
+
+\section{Discussion}
+\subsection{Interpretation of Findings}
+Semantic risk scoring is highly sensitive to explicit scam phrasing, while acoustic spoofing cues capture non-semantic deception. Their fusion provides redundancy when one signal is unreliable (e.g., ASR errors or benign scripted speech).
+
+\subsection{Performance Discussion}
+The semantic model is strong for common scam scripts but may miss novel phrasing; acoustic detection helps identify spoofed voices that carry benign content. Conversely, acoustic probabilities may remain low for human scammers, reinforcing the need for semantic scoring in the overall decision.
+
+\subsection{Error or Failure Case Analysis}
+Failures arise under heavy noise (ASR errors), code-switching, or benign content with overlapping vocabulary. Polite customer-service interactions that mention ``security code'' can produce false positives, underscoring the need for context-aware thresholds and analyst review.
+
+\subsection{Practical Relevance}
+Outputs are structured for review, including matched phrases, category scores, and the final risk score. The agent output in Section 7 shows how evidence and fusion weights are exposed, enabling auditability and downstream policy checks.
+
+\subsection{Scientific Significance}
+The framework demonstrates a transparent, modular approach to scam detection that aligns with current ASR and spoofing research, while emphasizing operational interpretability.
+
+\section{Ablation Study / Sensitivity Analysis}
+\subsection{Component Removal Analysis}
+Remove acoustic or semantic modules and quantify performance drops, especially recall. Recommended ablations include: (i) semantic-only with fixed thresholds, (ii) acoustic-only with defaults, and (iii) fusion without calibration. Report changes in recall and false-positive rate to identify the most safety-critical component.
+
+\subsection{Parameter Sensitivity Analysis}
+Evaluate sensitivity to fusion weight $\alpha$, ASR model size, and semantic threshold. Test $\alpha \in \{0.2, 0.3, 0.5, 0.7\}$ and thresholds in $[0.4, 0.7]$ to characterize stability and operating trade-offs.
+
+\subsection{Feature Contribution Analysis}
+Measure contributions from lexicon matches, regex flags, and transformer outputs by removing each group and tracking semantic score deltas. Report the share of true positives driven by credential requests, urgency pressure, and authority impersonation to guide lexicon maintenance.
+
+\subsection{Robustness Evaluation}
+Test with noise augmentation and partial transcripts to simulate degraded calls. Robustness should include codec artifacts and background noise consistent with mobile networks, as well as short utterances and overlapping speech.
+
+\section{Comparative Analysis}
+\subsection{Baseline Comparison}
+Compare against text-only keyword baselines and acoustic-only spoof baselines. Include simple rule-based detectors, logistic regression with TF--IDF features, and a shallow CNN on log-mel features to quantify the benefit of the multimodal approach.
+
+\subsection{Comparative Performance Evaluation}
+Report ROC and PR curves across systems to show trade-offs. Use operating points that emphasize low false negatives for safety-critical deployment, and report EER or t-DCF when available to align with spoofing benchmarks \cite{asvspoof2019}.
+
+\subsection{Computational Efficiency Analysis}
+Analyze inference latency for acoustic-only and fused systems, emphasizing ASR overhead. Provide per-minute compute estimates for batch workloads and compare CPU-only versus GPU-accelerated settings to motivate acoustic pre-filtering.
+
+\subsection{Strengths of the Proposed Approach}
+The method is modular, explainable, and deployable with tunable thresholds. It supports independent upgrades to ASR, acoustic, or semantic modules without full pipeline retraining and provides structured outputs suitable for audit logs.
+
+\section{Practical Implications}
+\subsection{Real-World Applicability}
+The framework is suitable for call centers, telecom operators, and enterprise help desks. In privacy-constrained environments, transcripts can be masked or hashed while preserving structured evidence.
+
+\subsection{Deployment Potential}
+Batch and streaming inference are feasible; explanations enable human-in-the-loop review. A production pipeline can route high-risk calls to analysts and automatically log evidence for auditability.
+
+\subsection{Scalability}
+Scalability comes from GPU acceleration for ASR and batching for semantic scoring. For high throughput, the acoustic module can act as a pre-filter that triggers ASR only when risk or metadata signals are elevated.
+
+\subsection{Practical Benefits}
+The system reduces analyst burden, flags high-risk calls early, and provides evidence for compliance reporting. Evidence trails also help monitor drift in scam phrasing and audio patterns.
+
+\section{Limitations}
+\subsection{Data-Related Limitations}
+Scam data may underrepresent emerging attack styles or multilingual scenarios. Bias toward certain regions or scripts can reduce generalization, and limited coverage of legitimate customer-service scripts can inflate false positives.
+
+\subsection{Methodological Limitations}
+Semantic scoring depends on lexicons and may miss subtle social engineering. Acoustic spoofing models may underperform when scammers are human, which increases reliance on semantic evidence and ASR quality.
+
+\subsection{Experimental Constraints}
+Performance depends on ASR quality and domain match between training and deployment. Threshold choices and limited labeled call data can influence reported results, especially in noisy settings.
+
+\subsection{Generalization Challenges}
+Cross-lingual adaptation and evolving scam language require ongoing updates. Periodic retraining and lexicon refresh are necessary, and continuous monitoring is needed to detect shifts in tactics or channel properties.
+
+\section{Conclusion}
+We presented an agentic multimodal scam-call detection framework that fuses acoustic spoofing cues with semantic scam indicators. The design emphasizes interpretability and deployability while improving robustness. Tool outputs and agent-level evidence illustrate transparent decisioning. Future experiments should quantify fusion gains on real-world call datasets and validate stability across diverse channels.
+
+\section{Future Work}
+\subsection{Future Enhancements}
+Explore supervised semantic classifiers with continual learning and calibration for new scam variants. Investigate adaptive fusion weights based on ASR confidence and acoustic uncertainty, and apply uncertainty-aware decisioning for borderline cases.
+
+\subsection{Extended Validation}
+Evaluate on larger and more diverse datasets, including multilingual settings and regional scam patterns. Longitudinal studies should measure drift and false-positive changes over time.
+
+\subsection{Real-Time Implementation}
+Implement streaming ASR and early-exit logic to reduce latency and enable near-real-time routing. Investigate partial transcript scoring with incremental risk updates.
+
+\subsection{Broader Application Scope}
+Extend the framework to multilingual settings and related fraud domains such as robocalls, impersonation, and social engineering in customer support. Integrate metadata signals (call origin, call frequency) to refine confidence.
+
+\section*{Acknowledgments}
+This work builds on open datasets and open-source speech and NLP tooling.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

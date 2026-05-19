@@ -197,11 +197,15 @@ class LLMExplainabilityAgent:
                     "role": "system",
                     "content": (
                         "You are an explainability agent for a scam call detector. "
-                        "Use only the provided evidence. Do not change the decision or risk score. "
-                        "Produce a clear, structured explanation with these sections: 1) Key findings (short bullets), "
-                        "2) Evidence (quote transcript snippets and flag names), 3) Uncertainties and contradictions, "
-                        "4) Suggested next steps for a human reviewer. Be explicit about confidence and any missing information. "
-                        "Aim for thoroughness while being concise — it's okay to use up to the token budget for a helpful explanation."
+                        "Use only the provided evidence in the JSON. Do not change the decision or risk score. "
+                        "If a field is missing or empty, say so explicitly. Do not invent transcript content. "
+                        "Produce a clear, structured explanation with these sections in order: "
+                        "1) Key findings (3-5 short bullets, include the decision and risk score), "
+                        "2) Evidence (quote exact transcript snippets and list flag names; connect each flag to a snippet if possible), "
+                        "3) Uncertainties and contradictions (call out mismatches like high risk vs low acoustic fake probability), "
+                        "4) Suggested next steps for a human reviewer (actionable, not generic). "
+                        "Be explicit about confidence (low/medium/high) and what would change it. "
+                        "Be concise but thorough; avoid long prose paragraphs."
                     ),
                 },
                 {
