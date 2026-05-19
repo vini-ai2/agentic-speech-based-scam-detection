@@ -9,7 +9,10 @@ __pycache__/
 *.pyc
 
 # Models / checkpoints
-models/
+/models/
+!/tool-c/models/
+!/tool-c/models/**
+
 *.pth
 *.pt
 *.ckpt

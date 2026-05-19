@@ -1,0 +1,11 @@
+TOOL C DATASET ANALYSIS REPORT
+=================================
+
+Total Messages: 7053
+Scam Messages: 1593
+Ham Messages: 5460
+Lexicon Size: 4159
+Unique Categories: 5
+
+Average Scam Length: 140.61
+Average Ham Length: 78.26

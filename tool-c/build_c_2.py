@@ -11,6 +11,7 @@ import torch
 import numpy as np
 import pandas as pd
 import torch.nn as nn
+import matplotlib.pyplot as plt
 
 from flashtext import KeywordProcessor
 
@@ -1086,5 +1087,257 @@ for i, test in enumerate(test_cases):
     print(result)
 
     print("\n")
+
+# =========================================================
+# TOOL C VISUALIZATION ENGINE
+# =========================================================
+
+print("\n[+] Generating Tool C visualizations...")
+
+# =========================================================
+# COLLECT RESULTS
+# =========================================================
+
+test_names = []
+
+semantic_scores = []
+
+feature_scores = []
+
+final_scores = []
+
+risk_levels = []
+
+for test in test_cases:
+
+    result = detector.predict(
+        test["text"]
+    )
+
+    test_names.append(
+        test["name"]
+    )
+
+    semantic_scores.append(
+        result["semantic_score"]
+    )
+
+    feature_scores.append(
+        result["feature_score"]
+    )
+
+    final_scores.append(
+        result["final_score"]
+    )
+
+    risk_levels.append(
+        result["risk_level"]
+    )
+
+# =========================================================
+# CREATE OUTPUT FOLDER
+# =========================================================
+
+os.makedirs(
+    "./tool_c_graphs",
+    exist_ok=True
+)
+
+# =========================================================
+# GRAPH 1
+# SEMANTIC VS FEATURE VS FINAL
+# =========================================================
+
+x = np.arange(len(test_names))
+
+width = 0.25
+
+plt.figure(figsize=(14, 7))
+
+plt.bar(
+    x - width,
+    semantic_scores,
+    width,
+    label="Semantic"
+)
+
+plt.bar(
+    x,
+    feature_scores,
+    width,
+    label="Feature"
+)
+
+plt.bar(
+    x + width,
+    final_scores,
+    width,
+    label="Final"
+)
+
+plt.xticks(
+    x,
+    test_names,
+    rotation=25
+)
+
+plt.ylim(0, 1.05)
+
+plt.ylabel("Score")
+
+plt.title(
+    "Tool C: Semantic vs Feature vs Final Risk"
+)
+
+plt.legend()
+
+plt.tight_layout()
+
+plt.savefig(
+    "./tool_c_graphs/tool_c_score_breakdown.png"
+)
+
+plt.close()
+
+# =========================================================
+# GRAPH 2
+# FINAL RISK SCORES
+# =========================================================
+
+plt.figure(figsize=(12, 6))
+
+plt.bar(
+    test_names,
+    final_scores
+)
+
+plt.axhline(
+    y=0.60,
+    linestyle="--",
+    label="Medium Risk"
+)
+
+plt.axhline(
+    y=0.85,
+    linestyle="--",
+    label="High Risk"
+)
+
+plt.ylabel("Final Risk Score")
+
+plt.title(
+    "Tool C Final Scam Risk Scores"
+)
+
+plt.xticks(rotation=25)
+
+plt.legend()
+
+plt.tight_layout()
+
+plt.savefig(
+    "./tool_c_graphs/tool_c_final_risk.png"
+)
+
+plt.close()
+
+# =========================================================
+# GRAPH 3
+# MODEL PERFORMANCE METRICS
+# =========================================================
+
+metric_names = [
+
+    "Accuracy",
+    "Precision",
+    "Recall",
+    "F1"
+]
+
+metric_values = [
+
+    metrics["eval_accuracy"],
+
+    metrics["eval_precision"],
+
+    metrics["eval_recall"],
+
+    metrics["eval_f1"]
+]
+
+plt.figure(figsize=(8, 6))
+
+plt.bar(
+    metric_names,
+    metric_values
+)
+
+plt.ylim(0.8, 1.0)
+
+plt.ylabel("Score")
+
+plt.title(
+    "Tool C Validation Metrics"
+)
+
+for i, v in enumerate(metric_values):
+
+    plt.text(
+        i,
+        v + 0.003,
+        f"{v:.3f}",
+        ha="center"
+    )
+
+plt.tight_layout()
+
+plt.savefig(
+    "./tool_c_graphs/tool_c_metrics.png"
+)
+
+plt.close()
+
+# =========================================================
+# GRAPH 4
+# RISK LEVEL DISTRIBUTION
+# =========================================================
+
+risk_counts = {
+
+    "HIGH": risk_levels.count("HIGH"),
+
+    "MEDIUM": risk_levels.count("MEDIUM"),
+
+    "LOW": risk_levels.count("LOW"),
+}
+
+plt.figure(figsize=(7, 7))
+
+plt.pie(
+
+    risk_counts.values(),
+
+    labels=risk_counts.keys(),
+
+    autopct="%1.1f%%"
+)
+
+plt.title(
+    "Tool C Risk Level Distribution"
+)
+
+plt.savefig(
+    "./tool_c_graphs/tool_c_risk_distribution.png"
+)
+
+plt.close()
+
+# =========================================================
+# DONE
+# =========================================================
+
+print("\n[+] Tool C graphs saved to:")
+
+print("./tool_c_graphs/")
 
 print("\n[+] TOOL C READY")
