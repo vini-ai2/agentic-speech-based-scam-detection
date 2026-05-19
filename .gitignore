@@ -1,12 +1,35 @@
-/.venv/
-/agent/__pycache__/
-/data/
-/models/
-/outputs/ppt_assets/
+# Virtual environments
+.venv/
+venv/
+toolc_env/
+.env
+
+# Python cache
+__pycache__/
 *.pyc
+
+# Models / checkpoints
+models/
 *.pth
 *.pt
+*.ckpt
 *.safetensors
+
+# Data
+data/
+datasets/
+
+# Audio files
 *.wav
 *.mp3
-.env
+
+# Outputs
+outputs/ppt_assets/
+
+# Secrets
+tokens.txt
+
+# Editor / OS files
+.vscode/
+.DS_Store
+Thumbs.db
