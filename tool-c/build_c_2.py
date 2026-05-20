@@ -181,6 +181,12 @@ IMPORTANT_UNIGRAMS = {
     "amazon",
     "government",
     "police",
+    "claim", 
+    "free", 
+    "new number", 
+    "urgent", 
+    "immediately", 
+    "guarunteed"
 }
 
 # =========================================================
@@ -200,11 +206,18 @@ GENERIC_WORDS = {
     "mobile",
     "customer",
     "service",
-    "claim",
     "receive",
     "hello",
     "thanks",
     "please",
+    "food",
+    "delivery",
+    "order",
+    "delivered",
+    "restaurant",
+    "courier",
+    "tracking",
+    "parcel"
 }
 
 # =========================================================
